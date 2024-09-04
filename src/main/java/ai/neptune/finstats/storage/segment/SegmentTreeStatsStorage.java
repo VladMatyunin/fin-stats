@@ -1,44 +1,53 @@
 package ai.neptune.finstats.storage.segment;
 
+import ai.neptune.finstats.api.ApiConstants;
 import ai.neptune.finstats.storage.SymbolStatsStorage;
 import ai.neptune.finstats.storage.TotalStats;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.*;
+import java.util.stream.IntStream;
 
 public class SegmentTreeStatsStorage implements SymbolStatsStorage {
 
-    Deque<SegmentTreeHolder> segmentTrees = new ArrayDeque<>();
+    private final int segmentTreeMaxSize = (int) Math.pow(10, ApiConstants.K_MAX_EXPONENT);
 
-    Float lastElement;
+    private SegmentTree segmentTree;
+
+    Deque<Float> dataPoints = new ArrayDeque<>();
 
     public void pushBatch(float[] data) {
-        lastElement = data[data.length - 1];
-        segmentTrees.addFirst(new SegmentTreeHolder(data));
+        for (var item: data) {
+            dataPoints.addFirst(item);
+        }
+        var pointsIterator = dataPoints.iterator();
+        var currentPoint = 0;
+        var segmentTreeSize = Math.min(segmentTreeMaxSize, dataPoints.size());
+        var segmentArray = new float[segmentTreeSize];
+        while (pointsIterator.hasNext() && currentPoint < segmentTreeMaxSize) {
+            segmentArray[currentPoint] = pointsIterator.next();
+            currentPoint++;
+        }
+        segmentTree = new SegmentTree(segmentArray);
     }
 
     public TotalStats takeStats(int to) {
-        var iterator = segmentTrees.iterator();
-        var isReachedBound = false;
-        var currentPoint = 0;
-        Stats totalStats = Stats.empty();
-        while (iterator.hasNext() && !isReachedBound) {
-            var nextTree = iterator.next();
-            if (currentPoint + nextTree.numOfItems < to) {
-                totalStats = totalStats.merge(nextTree.tree.getTotal());
-                currentPoint += nextTree.numOfItems;
-            } else {
-                var rangedStat = nextTree.tree.rangeStats(currentPoint + nextTree.numOfItems - to, nextTree.numOfItems);
-                totalStats = totalStats.merge(rangedStat);
-                isReachedBound = true;
-            }
+        if (segmentTree == null || dataPoints.isEmpty()) {
+            return TotalStats.empty();
         }
+        var segmentStats = segmentTree.rangeStats(0, to - 1);
         return TotalStats.builder()
-                .max(totalStats.getMax())
-                .min(totalStats.getMin())
-                .avg(totalStats.getAvg())
-                .last(lastElement)
-                .variance(totalStats.variance)
+                .max(segmentStats.getMax())
+                .min(segmentStats.getMin())
+                .avg(segmentStats.getAvg())
+                .last(dataPoints.peekFirst())
+                .variance(segmentStats.variance)
                 .build();
+    }
+
+    private void cleanUp() {
+        if (dataPoints.size() > segmentTreeMaxSize) {
+            var itemsToRemove = segmentTreeMaxSize - dataPoints.size();
+            IntStream.range(0, itemsToRemove).forEach(i -> dataPoints.pollLast());
+        }
     }
 }
