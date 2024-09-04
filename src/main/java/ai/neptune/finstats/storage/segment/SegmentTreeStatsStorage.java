@@ -4,50 +4,59 @@ import ai.neptune.finstats.api.ApiConstants;
 import ai.neptune.finstats.storage.SymbolStatsStorage;
 import ai.neptune.finstats.storage.TotalStats;
 
-import java.util.*;
-import java.util.stream.IntStream;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class SegmentTreeStatsStorage implements SymbolStatsStorage {
 
-    private final int segmentTreeMaxSize = (int) Math.pow(10, ApiConstants.K_MAX_EXPONENT);
+    final int segmentTreeMaxSize;
+
+    public SegmentTreeStatsStorage(int maxSize) {
+        this.segmentTreeMaxSize = maxSize;
+    }
+
+    public SegmentTreeStatsStorage() {
+        this.segmentTreeMaxSize = (int) Math.pow(10, ApiConstants.K_MAX_EXPONENT);
+    }
 
     private SegmentTree segmentTree;
-
-    Deque<Float> dataPoints = new ArrayDeque<>();
+    private Deque<Float> dataPoints = new ArrayDeque<>();
 
     public void pushBatch(float[] data) {
-        for (var item: data) {
+        for (float item : data) {
             dataPoints.addFirst(item);
         }
-        var pointsIterator = dataPoints.iterator();
-        var currentPoint = 0;
-        var segmentTreeSize = Math.min(segmentTreeMaxSize, dataPoints.size());
-        var segmentArray = new float[segmentTreeSize];
-        while (pointsIterator.hasNext() && currentPoint < segmentTreeMaxSize) {
-            segmentArray[currentPoint] = pointsIterator.next();
-            currentPoint++;
+        updateSegmentTree();
+    }
+
+    private void updateSegmentTree() {
+        cleanUp();
+        var segmentArray = new float[Math.min(segmentTreeMaxSize, dataPoints.size())];
+        int i = 0;
+        for (float point : dataPoints) {
+            segmentArray[i++] = point;
+            if (i >= segmentTreeMaxSize) break;
         }
         segmentTree = new SegmentTree(segmentArray);
     }
 
     public TotalStats takeStats(int to) {
-        if (segmentTree == null || dataPoints.isEmpty()) {
+        if (segmentTree == null || dataPoints.isEmpty() || to <= 0) {
             return TotalStats.empty();
         }
-        var segmentStats = segmentTree.rangeStats(0, to - 1);
+        Stats segmentStats = segmentTree.rangeStats(0, Math.min(to - 1, dataPoints.size() - 1));
         return TotalStats.builder()
                 .max(segmentStats.getMax())
                 .min(segmentStats.getMin())
                 .avg(segmentStats.getAvg())
                 .last(dataPoints.peekFirst())
-                .variance(segmentStats.variance)
+                .variance(segmentStats.getVariance())
                 .build();
     }
 
     private void cleanUp() {
-        if (dataPoints.size() > segmentTreeMaxSize) {
-            var itemsToRemove = segmentTreeMaxSize - dataPoints.size();
-            IntStream.range(0, itemsToRemove).forEach(i -> dataPoints.pollLast());
+        while (dataPoints.size() > segmentTreeMaxSize) {
+            dataPoints.pollLast();
         }
     }
 }
