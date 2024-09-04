@@ -3,6 +3,8 @@ package ai.neptune.finstats.storage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.NoSuchElementException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class InMemoryStatsRepositoryTest {
@@ -22,9 +24,9 @@ class InMemoryStatsRepositoryTest {
         storage.add(symbol, prices);
 
         // Check if data was added for different window sizes
-        assertNotNull(storage.takeLast(symbol, 1)); // 1e1 -> 10
-        assertNotNull(storage.takeLast(symbol, 2)); // 1e2 -> 100
-        assertNotNull(storage.takeLast(symbol, 3));    // 1e3 -> 1000 not added
+        assertNotNull(storage.takeLast(symbol, 10)); // 1e1 -> 10
+        assertNotNull(storage.takeLast(symbol, 100)); // 1e2 -> 100
+        assertNotNull(storage.takeLast(symbol, 1000));    // 1e3 -> 1000 not added
     }
 
     @Test
@@ -45,7 +47,7 @@ class InMemoryStatsRepositoryTest {
 
         storage.add(symbol, prices);
 
-        TotalStats stats = storage.takeLast(symbol, 1); // Request for 1e1 -> 10 points
+        TotalStats stats = storage.takeLast(symbol, 10); // Request for 1e1 -> 10 points
 
         assertNotNull(stats);
         assertEquals(10.0f, stats.getMin());
@@ -58,7 +60,7 @@ class InMemoryStatsRepositoryTest {
     public void testTakeLastNonExistingSymbol() {
         String symbol = "TSLA";
 
-        assertThrows(IllegalArgumentException.class, () -> storage.takeLast(symbol, 1));
+        assertThrows(NoSuchElementException.class, () -> storage.takeLast(symbol, 1));
     }
 
     @Test
@@ -69,7 +71,8 @@ class InMemoryStatsRepositoryTest {
         storage.add(symbol, prices);
 
         // Request more items than available (i.e., 1e3 -> 1000 points)
-        assertThrows(IllegalArgumentException.class, () -> storage.takeLast(symbol, 3));
+        var stats = storage.takeLast(symbol, 1000);
+        verifyStats("AMZN", 2, 100, 200, 150, 2500);
     }
 
 
@@ -82,28 +85,28 @@ class InMemoryStatsRepositoryTest {
         storage.add(symbol, batch1);
 
         // Verify stats after first batch
-        verifyStats(symbol, 1, 1.0f, 3.0f, 2.0f, 0.6667f);
+        verifyStats(symbol, 10, 1.0f, 3.0f, 2.0f, 0.6667f);
 
         // Add second batch of data
         var batch2 = new float[] {4.0f, 5.0f, 6.0f};
         storage.add(symbol, batch2);
 
         // Verify stats after second batch
-        verifyStats(symbol, 1, 1.0f, 6.0f, 3.5f, 2.9167f);
+        verifyStats(symbol, 10, 1.0f, 6.0f, 3.5f, 2.9167f);
 
         // Add third batch of data
         var batch3 = new float[] {7.0f, 8.0f};
         storage.add(symbol, batch3);
 
         // Verify stats after third batch
-        verifyStats(symbol, 1, 1.0f, 8.0f, 4.5f, 5.25f);
+        verifyStats(symbol, 10, 1.0f, 8.0f, 4.5f, 5.25f);
 
         // Add fourth batch of data
         var batch4 = new float[] {10.0f, 20.0f, 30.0f, 40.0f};
         storage.add(symbol, batch4);
 
         // Verify stats after fourth batch
-        verifyStats(symbol, 1, 3.0f, 40.0f, 13.3f, 143.01f);
+        verifyStats(symbol, 10, 3.0f, 40.0f, 13.3f, 143.01f);
     }
 
     private void verifyStats(String symbol, int numOfItems, float expectedMin, float expectedMax, float expectedAvg, float expectedVariance) {
