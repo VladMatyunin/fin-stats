@@ -7,6 +7,15 @@ import ai.neptune.finstats.storage.TotalStats;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+/**
+ * A storage based on Segment Tree data structure
+ * On each batch add it recreates the Segment Tree containing the statistics
+ * When the statistics is queried, the class simply queries the predefined segment tree
+ * Expected complexity for statistics querying is O(log(n))
+ * <p>
+ * Further optimisations may include not rebuilding tree on each batch insert, but accumulate the stats
+ * to a temporary storage and on predefined threshold rebuild the tree
+ */
 public class SegmentTreeStatsStorage implements SymbolStatsStorage {
 
     final int segmentTreeMaxSize;

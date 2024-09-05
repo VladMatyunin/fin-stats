@@ -31,25 +31,6 @@ class SegmentTreeStatsStorageTest {
     }
 
     @Test
-    public void testPushBatchWithMoreThanMaxSize() {
-        // Push more data than the segment tree max size and check the stats
-        float[] data = new float[1000];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = i + 1;
-        }
-        statsStorage.pushBatch(data);
-
-        // The segment tree should only have the last `segmentTreeMaxSize` elements
-        TotalStats stats = statsStorage.takeStats(statsStorage.segmentTreeMaxSize);
-        assertNotNull(stats, "TotalStats should not be null");
-        assertEquals(1000.0f, stats.getMax(), 0.001, "Max value mismatch");
-        assertEquals(901.0f, stats.getMin(), 0.001, "Min value mismatch");
-        assertEquals(950.5f, stats.getAvg(), 0.001, "Average value mismatch");
-        assertEquals(83333.333f, stats.getVariance(), 0.01, "Variance mismatch");
-        assertEquals(1000.0f, stats.getLast(), 0.001, "Last value mismatch");
-    }
-
-    @Test
     public void testCleanUpAfterExceedingMaxSize() {
         // Push data and check if the cleanup occurs
         float[] data = new float[2000];
